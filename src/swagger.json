@@ -1,0 +1,413 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Virtual Event Management API",
+    "version": "1.0.0",
+    "description": "API documentation for the Virtual Event Management platform backend system. Includes authentication, event CRUD, and attendee event registrations."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Input your JWT token in the format: Bearer <token>"
+      }
+    },
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["username", "email", "password"],
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "john_doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "securePassword123"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["attendee", "organizer"],
+            "default": "attendee",
+            "example": "attendee"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "securePassword123"
+          }
+        }
+      },
+      "EventRequest": {
+        "type": "object",
+        "required": ["title", "description", "date", "time"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "AI Pair Programming Webinar"
+          },
+          "description": {
+            "type": "string",
+            "example": "A workshop introducing agentic AI coding assistants."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-15"
+          },
+          "time": {
+            "type": "string",
+            "example": "14:00"
+          },
+          "capacity": {
+            "type": "integer",
+            "default": 50,
+            "example": 100
+          }
+        }
+      },
+      "EventUpdate": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Advanced AI Pair Programming Webinar"
+          },
+          "description": {
+            "type": "string",
+            "example": "An advanced workshop on agentic AI."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-16"
+          },
+          "time": {
+            "type": "string",
+            "example": "15:00"
+          },
+          "capacity": {
+            "type": "integer",
+            "example": 120
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/register": {
+      "post": {
+        "summary": "Register a new user",
+        "description": "Creates a new user profile with password hashing. Sends a welcome email notification.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User successfully registered"
+          },
+          "400": {
+            "description": "Invalid input, duplicate email, or invalid role choice"
+          }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "Log in a user",
+        "description": "Authenticates user credentials and returns a JWT token for session management.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful, returns token"
+          },
+          "401": {
+            "description": "Invalid email or password"
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "summary": "Get all events",
+        "description": "Retrieves list of all scheduled events. Accessible to all logged-in users.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of events"
+          },
+          "401": {
+            "description": "Missing or invalid token"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new event",
+        "description": "Creates a new event. Accessible only to users with the 'organizer' role.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event successfully created"
+          },
+          "400": {
+            "description": "Invalid event parameters"
+          },
+          "403": {
+            "description": "Access denied - Organizer role required"
+          }
+        }
+      }
+    },
+    "/events/my-registrations": {
+      "get": {
+        "summary": "Get my registered events",
+        "description": "Retrieves the list of events the logged-in attendee has registered for.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of registered events"
+          },
+          "403": {
+            "description": "Access denied - Attendee role required"
+          }
+        }
+      }
+    },
+    "/events/{id}": {
+      "get": {
+        "summary": "Get event by ID",
+        "description": "Retrieves event details with populated organizer profile and list of participant user details.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique identifier of the event",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event details retrieved successfully"
+          },
+          "404": {
+            "description": "Event not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update an event",
+        "description": "Updates details of an event. Accessible only to the organizer who created it.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique identifier of the event",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event successfully updated"
+          },
+          "400": {
+            "description": "Invalid request body or capacity reduction block"
+          },
+          "403": {
+            "description": "Access denied - Only the creator can update the event"
+          },
+          "404": {
+            "description": "Event not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete an event",
+        "description": "Removes an event. Accessible only to the organizer who created it.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique identifier of the event",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event successfully deleted"
+          },
+          "403": {
+            "description": "Access denied - Only the creator can delete the event"
+          },
+          "404": {
+            "description": "Event not found"
+          }
+        }
+      }
+    },
+    "/events/{id}/register": {
+      "post": {
+        "summary": "Register for an event",
+        "description": "Registers the logged-in attendee for the event. Validates capacity and duplicate bookings. Sends email notification.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique identifier of the event",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully registered"
+          },
+          "400": {
+            "description": "Already registered or event capacity fully booked"
+          },
+          "403": {
+            "description": "Access denied - Attendee role required"
+          },
+          "404": {
+            "description": "Event not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Cancel event registration",
+        "description": "Cancels registration of the logged-in attendee. Sends a cancellation email.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique identifier of the event",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration successfully cancelled"
+          },
+          "400": {
+            "description": "Not registered for this event"
+          },
+          "403": {
+            "description": "Access denied - Attendee role required"
+          },
+          "404": {
+            "description": "Event not found"
+          }
+        }
+      }
+    }
+  }
+}
